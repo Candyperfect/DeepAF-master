@@ -18,7 +18,7 @@ CUDA_VISIBLE_DEVICES=1 nohup python model_main2016.py
 * **experimental annotations of proteins and corresponding SwissProt data**: (http://deepgoplus.bio2vec.net/data/)  
 * **├─2016 version dataset
 * **└─2021 version dataset  
-* **protein text**: (https://www.uniprot.org/citations/) 
+* **protein texts**: (https://www.uniprot.org/citations/) 
  
 
 ## Usage

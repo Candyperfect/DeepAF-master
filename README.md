@@ -7,18 +7,21 @@
 * Numpy == 1.16.2  
 * SciPy == 1.4.1    
 * scikit-learn == 0.22.2 
-
+* pytorch_pretrained_bert == 0.6.2 
+* transformers == 2.8.0 
+* fair-esm == 0.4.2 
 
 # Usage 
 ````
-CUDA_VISIBLE_DEVICES=1 nohup python main.py 
+CUDA_VISIBLE_DEVICES=1 python main.py 
 ````
 
 # Data
 ## Link
-* **experimental annotations of proteins and corresponding SwissProt data**: (https://www.ebi.ac.uk/GOA/downloads)  
+* **experimental annotations of proteins**: (https://www.ebi.ac.uk/GOA/downloads)  
 * **├─Human dataset
-* **└─Yeast version dataset  
+* **└─Yeast dataset  
 * **protein texts**: (https://www.uniprot.org/citations/) 
+* **protein sequences**: (https://www.uniprot.org/) 
  
 

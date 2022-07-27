@@ -1,5 +1,5 @@
 # DeepAF
-"[DeepAF: Improving protein function prediction via adaptively fusing information from protein sequences and biomedical literature]"
+"[DeepAF: Improving protein function prediction by adaptively fusing information from protein sequences and biomedical literature]"
 
 # Environment Settings 
 * python == 3.7   

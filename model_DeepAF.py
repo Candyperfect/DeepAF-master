@@ -59,25 +59,11 @@ class MyDataSet(Data.Dataset):
             lenlist.append(len(text))
             output = torch.cat(temp1,dim=0)
             new_data.append((sqe,temp,output,label))
-        input_seq,input_texttfidf,input_textbiobert,target_labels= [], [], [], []
+        input_seq,input_textbiobert,target_labels= [], [], []
         for sqe, text, output, label in new_data:
-            s = ' '.join(text)
-            ss = s.translate(str.maketrans('', '', string.punctuation))
-            line = ss.strip('\n').split()
-            temp = []
-            for j in line:
-                if j in notesvocab:
-                    temp.append(j)
-            sss = ' '.join(temp)
-            input_texttfidf.append(sss)
             input_textbiobert.append(output)
             target_labels.append(label)
-        vect = TfidfVectorizer(min_df=1,vocabulary=notesvocab,binary=True)
-        binaryn = vect.fit_transform(input_texttfidf)
-        binaryn=binaryn.A
-        binaryn=np.array(binaryn,dtype=float)
         self.input_seq = torch.FloatTensor(prot_fea)
-        self.input_texttfidf = binaryn
         self.input_textbiobert = input_textbiobert
         self.target_labels = target_labels
     
@@ -85,30 +71,28 @@ class MyDataSet(Data.Dataset):
         return len(self.input_seq)
  
     def __getitem__(self, idx):
-        return self.input_seq[idx], self.input_texttfidf[idx], self.input_textbiobert[idx],self.target_labels[idx]
+        return self.input_seq[idx], self.input_textbiobert[idx],self.target_labels[idx]
 
 def collate_fn(examples):
     device = torch.device('cuda:0') 
-    textnum=np.max([ex[2].size(0) for ex in examples])
-    input_seq,input_texttfidf,input_textbiobert,target_labels= [], [], [], []
+    textnum=np.max([ex[1].size(0) for ex in examples])
+    input_seq,input_textbiobert,target_labels= [], [], []
     for ex in examples:
         input_seq.append(ex[0].unsqueeze(0))
-        input_texttfidf.append(ex[1])
-        target_labels.append(ex[3])
-        if ex[2].size(0) < textnum:
-            temp=torch.zeros((textnum-ex[2].size(0)),768).to(device)
-            a=torch.cat([ex[2],temp],dim=0)
+        target_labels.append(ex[2])
+        if ex[1].size(0) < textnum:
+            temp=torch.zeros((textnum-ex[1].size(0)),768).to(device)
+            a=torch.cat([ex[1],temp],dim=0)
         else:
-            a=ex[2]
+            a=ex[1]
         input_textbiobert.append(a.unsqueeze(0))
 
     output = torch.cat(input_seq,dim=0)
     output1 = torch.cat(input_textbiobert,dim=0)
     input_seq = torch.FloatTensor(output)
-    input_texttfidf = torch.FloatTensor(input_texttfidf)
     input_textbiobert = output1
     target_labels = torch.FloatTensor(target_labels)
-    return input_seq,input_texttfidf,input_textbiobert,target_labels
+    return input_seq,input_textbiobert,target_labels
 
 
 
@@ -131,13 +115,10 @@ class ConvNet(nn.Module):
     def __init__(self,alpha=0.25,gamma=2, reduction='mean', lb_smooth=0.1, ignore_index=-100):
         super().__init__()
         self.BN = nn.BatchNorm1d(768, momentum=0.5)
-        self.BN1 = nn.BatchNorm1d(voclen, momentum=0.5)
-        self.map1 = nn.Linear(voclen, 768)
         # self.bert=BertModel.from_pretrained('/home/DUTIR/zhaoyingwen/BioBert/biobert_v1.1_pubmed_v2.5.1_convert')
         # self.bert=self.bert.to(DEVICE)
         self.hidden_dim = 768
         self.hidden_dim1 = 768
-        self.voclen = voclen
         self.classnum = classnum
         self.sqe = nn.Linear(768, 768)
         self.text = nn.Linear(768, 768)
@@ -162,7 +143,7 @@ class ConvNet(nn.Module):
         self.attention = Attention(768)
         self.fc1 = nn.Linear(2*768, self.classnum)#+voclen,768
 
-    def forward_logit(self,x_s,x_t,x_b):
+    def forward_logit(self,x_s,x_b):
         x_s=self.sqe(x_s)
         x_b=self.text(x_b)
         H_S, H_T = self.T_block1(x_s.unsqueeze(1), x_b)
@@ -299,9 +280,9 @@ def trainmodel(model,train_loader,loss_function,optimizer,accumulation_steps = 8
     for i in range(10):
         model.train()
         model.zero_grad()
-        for batch_idx, (input_seq, input_text, input_textb,target_labels) in enumerate(train_loader):
-            input_seq, input_text,input_textb, target_labels = Variable(torch.FloatTensor(input_seq)).to(DEVICE), Variable(torch.FloatTensor(input_text)).to(DEVICE), Variable(input_textb).to(DEVICE),Variable(torch.FloatTensor(target_labels)).to(DEVICE)
-            logits = model.forward_logit(input_seq, input_text,input_textb)
+        for batch_idx, (input_seq, input_textb,target_labels) in enumerate(train_loader):
+            input_seq,input_textb, target_labels = Variable(torch.FloatTensor(input_seq)).to(DEVICE), Variable(input_textb).to(DEVICE),Variable(torch.FloatTensor(target_labels)).to(DEVICE)
+            logits = model.forward_logit(input_seq,input_textb)
             loss = model.loss1(logits,target_labels)
 
         # 梯度积累
@@ -333,10 +314,10 @@ def testmodel(modelstate,test_loader,GOterm,fold,AA,train_index):
     y_true = []
     y_scores = []
 
-    for batch_idx, (input_seq, input_text,input_textb, target_labels) in enumerate(test_loader):
+    for batch_idx, (input_seq,input_textb, target_labels) in enumerate(test_loader):
 
-        input_seq, input_text, input_textb,target_labels = torch.FloatTensor(input_seq).to(DEVICE), torch.FloatTensor(input_text).to(DEVICE), Variable(input_textb).to(DEVICE),torch.FloatTensor(target_labels).to(DEVICE)
-        tag_scores= model.forward_logit(input_seq, input_text, input_textb)
+        input_seq, input_textb,target_labels = torch.FloatTensor(input_seq).to(DEVICE), Variable(input_textb).to(DEVICE),torch.FloatTensor(target_labels).to(DEVICE)
+        tag_scores= model.forward_logit(input_seq, input_textb)
 
         targets = target_labels.data.cpu().numpy()
         tag_scores = tag_scores.data.cpu().numpy()
